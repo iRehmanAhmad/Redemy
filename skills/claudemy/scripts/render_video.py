@@ -570,6 +570,29 @@ def _cover(im, w, h):
     return im.crop((x, y, x + w, y + h))
 
 
+def card_overlay_filters(inp, vlabel, card_png, rs, re_):
+    """Filter lines + input args for the one-rule card overlay.
+
+    Barka ghost-fix (2026-10-18): the card stream is only cd=re_-rs+0.4s
+    long, but the overlay enable window sits at rs..rs+cd on the MAIN
+    timeline. Without setpts the stream EOFs at graph t=cd and overlay's
+    default eof_action=repeat freezes the LAST card frame — which sits
+    inside the fade-out ramp — so the whole card ghosted at ~25% opacity.
+    setpts shifts the stream onto the enable window so overlay's frame-sync
+    finds live frames; every card-local timing (fade in/out st, pop-in
+    scale) is absolute graph time, with the scale ramp clamped to >=0.
+    Returns (input_args, filter_lines, new_vlabel)."""
+    cd = re_ - rs + 0.4
+    args = ["-loop", "1", "-t", f"{cd:.3f}", "-i", str(card_png)]
+    fc = [f"[{inp}:v]format=rgba,setpts=PTS+{rs:.3f}/TB,"
+          f"fade=t=in:st={rs:.3f}:d=0.2:alpha=1,"
+          f"fade=t=out:st={rs + cd - 0.15:.3f}:d=0.15:alpha=1,"
+          f"scale=w='iw*(0.94+0.06*min(max(0,(t-{rs:.3f}))/0.2,1))':h=-2:eval=frame[card]",
+          f"{vlabel}[card]overlay=x='(W-w)/2':y='(H-h)/2':"
+          f"enable='between(t,{rs:.3f},{re_ + 0.4:.3f})'[vcard]"]
+    return args, fc, "[vcard]"
+
+
 def render_lesson(lesson_dir, audio, words_path, meta, assets_dir, out_path, shot_seed):
     doc = json.loads(Path(words_path).read_text(encoding="utf-8"))
     words = doc["words"]
@@ -635,14 +658,12 @@ def render_lesson(lesson_dir, audio, words_path, meta, assets_dir, out_path, sho
             card_png = tmp / "card.png"
             render_rule_card(rule["headline"], rule.get("sub", ""), card_png)
             rs, re_ = rule_beat
-            cd = re_ - rs + 0.4
-            lt_inputs += ["-loop", "1", "-t", f"{cd:.3f}", "-i", str(card_png)]
-            fc.append(f"[{inp}:v]format=rgba,fade=t=in:st=0:d=0.2:alpha=1,"
-                      f"fade=t=out:st={cd - 0.15:.3f}:d=0.15:alpha=1,"
-                      f"scale=w='iw*(0.94+0.06*min(t/0.2,1))':h=-2:eval=frame[card]")
-            fc.append(f"{vlabel}[card]overlay=x='(W-w)/2':y='(H-h)/2':"
-                      f"enable='between(t,{rs:.3f},{re_ + 0.4:.3f})'[vcard]")
-            vlabel = "[vcard]"
+            # overlay construction lives in card_overlay_filters (Barka
+            # ghost-fix 2026-10-18: setpts aligns the cd-long stream with the
+            # absolute-time enable window; see that function's docstring)
+            args, cfc, vlabel = card_overlay_filters(inp, vlabel, card_png, rs, re_)
+            lt_inputs += args
+            fc.extend(cfc)
             inp += 1
         fc.append(f"{vlabel}ass='{ass}'[vass]")
         fc.append(f"[vass][2:v]overlay=0:0:eof_action=pass,format=yuv420p[vout]")

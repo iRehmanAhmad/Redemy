@@ -393,5 +393,112 @@ class OneRuleCardBorder(unittest.TestCase):
         self.assertEqual(render_video.ONE_RULE_BORDER_W, 8)
 
 
+class OneRuleCardGhostRegression(unittest.TestCase):
+    """Barka re-audit 2026-10-18: the card ghosted at ~25% opacity for its
+    whole beat. Root cause: the cd-long card stream EOF'd at graph t=cd while
+    overlay's enable window sat at rs..rs+cd on the main timeline, so
+    eof_action=repeat froze the last card frame (inside the fade-out ramp).
+    These tests lock the setpts+absolute-timing construction that fixes it."""
+
+    def _chain(self, rs=68.5, re_=76.2):
+        args, fc, out = render_video.card_overlay_filters(9, "[vlt]", Path("card.png"), rs, re_)
+        return args, ";".join(fc), out
+
+    def test_stream_shifted_onto_enable_window(self):
+        _, chain, _ = self._chain()
+        # setpts aligns the cd-long stream with the enable window on the
+        # main timeline; without it overlay EOF-repeats the faded last frame
+        self.assertIn("setpts=PTS+68.500/TB", chain)
+
+    def test_fade_timings_are_absolute(self):
+        _, chain, _ = self._chain()
+        cd = 76.2 - 68.5 + 0.4  # 8.1
+        self.assertIn(f"fade=t=in:st=68.500:d=0.2:alpha=1", chain)
+        self.assertIn(f"fade=t=out:st={68.5 + cd - 0.15:.3f}:d=0.15:alpha=1", chain)
+
+    def test_scale_pop_clamped_non_negative_on_absolute_time(self):
+        _, chain, _ = self._chain()
+        # the old min(t/0.2,1) goes negative on the absolute timeline and
+        # would break scale with a negative width
+        self.assertIn("min(max(0,(t-68.500))/0.2,1)", chain)
+
+    def test_input_duration_covers_enable_window(self):
+        args, chain, _ = self._chain()
+        cd = 76.2 - 68.5 + 0.4  # 8.1
+        self.assertEqual(args[:4], ["-loop", "1", "-t", f"{cd:.3f}"])
+        self.assertIn(f"enable='between(t,68.500,{76.2 + 0.4:.3f})'", chain)
+
+    def test_output_label_chains(self):
+        _, _, out = self._chain()
+        self.assertEqual(out, "[vcard]")
+
+
+class CardAssemblyWiring(unittest.TestCase):
+    """2026-10-18: the setpts refactor initially left the old block's
+    trailing lines in render_lesson (duplicate overlay + double inp += 1),
+    breaking the ffmpeg command ('Invalid input file index'). This test
+    stubs the slow prerender steps, captures the assembly command, and
+    checks the wiring: every -i index valid, exactly one card overlay."""
+
+    def _capture_assembly(self):
+        from unittest import mock
+        words = [W("one", 0.0, 0.5), W("two", 0.5, 1.0),
+                 W("three", 5.0, 5.5), W("four", 5.5, 6.0)]
+        doc = {"version": 1, "engine": "edge-tts", "words": words,
+               "turns": [{"speaker": "A", "start": 0.0, "end": 1.0},
+                         {"speaker": "B", "start": 5.0, "end": 6.0}]}
+        meta = {"hosts": {"A": "Nova", "B": "Atlas"},
+                "one_rule": {"turn": 1, "headline": "The headline",
+                             "sub": "The sub"}}
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            (td / "words.json").write_text(json.dumps(doc))
+            (td / "audio.mp3").write_bytes(b"\x00" * 64)
+            captured = {}
+
+            def fake_run(cmd, what="ffmpeg"):
+                if what == "lesson assembly":
+                    captured["cmd"] = cmd
+                    raise RuntimeError("STOP-AT-ASSEMBLY")
+
+            blank = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+            with mock.patch.object(render_video, "run", fake_run), \
+                 mock.patch.object(render_video, "render_shot_segment",
+                                   lambda s, a, seed, tmp: "seg.mp4"), \
+                 mock.patch.object(render_video, "render_scrim",
+                                   lambda p: blank.save(p)), \
+                 mock.patch.object(render_video, "render_progress_bar",
+                                   lambda tmp, dur: None), \
+                 mock.patch.object(render_video, "render_lower_third",
+                                   lambda n, t, c, p: blank.save(p)), \
+                 mock.patch.object(render_video, "render_rule_card",
+                                   lambda h, s, p: blank.save(p)), \
+                 mock.patch.object(render_video, "probe_seconds",
+                                   lambda p: 10.0):
+                try:
+                    render_video.render_lesson(td, td / "audio.mp3",
+                                               td / "words.json", meta,
+                                               td / "assets", td / "out.mp4",
+                                               "seed")
+                except RuntimeError as e:
+                    self.assertEqual(str(e), "STOP-AT-ASSEMBLY")
+        return captured["cmd"]
+
+    def test_audio_map_index_valid(self):
+        cmd = self._capture_assembly()
+        n_inputs = sum(1 for t in cmd if t == "-i")
+        mi = cmd.index("-map")
+        audio_idx = int(cmd[mi + 3].split(":")[0])
+        self.assertEqual(n_inputs, 6)   # base+scrim+bar, 1 pill, card, audio
+        self.assertEqual(audio_idx, 5)  # audio is the last input
+        self.assertLess(audio_idx, n_inputs)
+
+    def test_single_card_overlay_with_setpts(self):
+        cmd = self._capture_assembly()
+        fc = cmd[cmd.index("-filter_complex") + 1]
+        self.assertEqual(fc.count("overlay=x='(W-w)/2'"), 1)
+        self.assertIn("setpts=PTS+", fc)
+
+
 if __name__ == "__main__":
     unittest.main()
