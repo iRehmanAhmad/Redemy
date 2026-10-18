@@ -360,6 +360,40 @@ def render_scrim(path):
     img.save(path)
 
 
+BAR_FPS = 10       # pre-rendered bar animation rate (overlay repeats frames)
+BAR_H = 8          # spec §7: 8px tall, top edge y=0..8
+BAR_SEP_H = 1      # 1px black@0.5 separator under the bar (y=8)
+
+
+def render_progress_bar(tmp_dir, duration):
+    """Pre-render the top progress bar as a PNG sequence (BAR_FPS x duration).
+
+    The ffmpeg build on this VM does NOT evaluate per-frame `t` in
+    drawbox's `w` (verified 2026-10-18: w='1080*t/dur' rendered full-width
+    at every sampled time), so the growing fill is baked frame-by-frame:
+    track #2A2A35@70% + growing horizontal cyan->pink gradient fill +
+    1px black@0.5 separator. Fed back as a `-framerate BAR_FPS` image2
+    input, overlay=0:0. Returns the frame count.
+    """
+    n = max(2, int(round(duration * BAR_FPS)))
+    strip = Image.new("RGBA", (W, BAR_H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(strip)
+    c0, c1 = hex_to_rgb(PAL["host_a"]), hex_to_rgb(PAL["host_b"])
+    for x in range(W):
+        t = x / (W - 1)
+        col = tuple(int(c0[i] + (c1[i] - c0[i]) * t) for i in range(3)) + (255,)
+        gd.line([(x, 0), (x, BAR_H - 1)], fill=col)
+    track = hex_to_rgb(PAL["track"]) + (int(255 * 0.7),)
+    for i in range(n):
+        fw = int(round(W * i / (n - 1)))  # frame 0: empty track, last: full
+        img = Image.new("RGBA", (W, BAR_H + BAR_SEP_H), track)
+        if fw > 0:
+            img.paste(strip.crop((0, 0, fw, BAR_H)), (0, 0))
+        ImageDraw.Draw(img).line([(0, BAR_H), (W - 1, BAR_H)], fill=(0, 0, 0, 128))
+        img.save(tmp_dir / f"bar-{i:04d}.png")
+    return n
+
+
 def render_lower_third(name, tag, color_hex, path):
     """Speaker pill: bottom-left x=90, y-top=1420, h=84, radius 28, accent bar."""
     name_f = _font(FONTS["bold"], 44)
@@ -395,12 +429,19 @@ def _wrap(draw, text, font, max_w, max_lines):
     return lines[:max_lines]
 
 
+# One-rule card gradient border width (visible ring). Barka's audit recipe said
+# 3px -> 4px, but the rendered ring was actually 6px (inner panel inset 6);
+# bumped to 8px for the same proportional visibility increase.
+ONE_RULE_BORDER_W = 8
+
+
 def render_rule_card(headline, sub, path):
     """The one-rule card: centered glass panel x=90..990, y=700..1160."""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     x0, x1, y0, y1 = 90, 990, 700, 1160
-    # gradient border: cyan -> pink outer rect, ink inner rect inset 6
+    bw = ONE_RULE_BORDER_W
+    # gradient border: cyan -> pink outer rect, ink inner rect inset bw
     grad = Image.new("RGBA", (x1 - x0, y1 - y0), (0, 0, 0, 0))
     gd = ImageDraw.Draw(grad)
     c0, c1 = hex_to_rgb(PAL["host_a"]), hex_to_rgb(PAL["host_b"])
@@ -411,7 +452,8 @@ def render_rule_card(headline, sub, path):
     mask = Image.new("L", (x1 - x0, y1 - y0), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, x1 - x0 - 1, y1 - y0 - 1], radius=36, fill=255)
     img.paste(grad, (x0, y0), mask)
-    d.rounded_rectangle([x0 + 6, y0 + 6, x1 - 6, y1 - 6], radius=30, fill=(10, 10, 20, 225))
+    d.rounded_rectangle([x0 + bw, y0 + bw, x1 - bw, y1 - bw], radius=36 - bw,
+                        fill=(10, 10, 20, 225))
     # success check left of eyebrow
     ey = _font(FONTS["bold"], 52)
     amber = hex_to_rgb(PAL["amber"])
@@ -562,13 +604,17 @@ def render_lesson(lesson_dir, audio, words_path, meta, assets_dir, out_path, sho
         ass.write_text(build_ass(groups, duration, rule_beat), encoding="utf-8")
         scrim = tmp / "scrim.png"
         render_scrim(scrim)
+        # progress bar: pre-rendered PNG sequence (drawbox can't do per-frame
+        # width on this ffmpeg build) -> image2 input index 2, overlay=0:0
+        render_progress_bar(tmp, duration)
+        bar_seq = tmp / "bar-%04d.png"
 
         # lower-thirds: one PNG per turn (skip the one-rule beat: the card owns it)
         lt_inputs, lt_filters, lt_idx = [], [], 0
         vlabel = "0:v"
         fc = [f"[{vlabel}][1:v]overlay=0:0:eof_action=pass[b0]"]
         vlabel = "[b0]"
-        inp = 2
+        inp = 3
         for i, t in enumerate(turns):
             if rule_beat and t["start"] < rule_beat[1] and t["end"] > rule_beat[0]:
                 continue
@@ -599,17 +645,12 @@ def render_lesson(lesson_dir, audio, words_path, meta, assets_dir, out_path, sho
             vlabel = "[vcard]"
             inp += 1
         fc.append(f"{vlabel}ass='{ass}'[vass]")
-        dur = duration
-        fc.append(f"[vass]drawbox=x=0:y=0:w={W}:h=8:c='{PAL['track']}@0.7':t=fill,"
-                  f"drawbox=x=0:y=0:w='{W}*t/{dur:.3f}':h=8:c='{PAL['host_a']}':t=fill:"
-                  f"enable='between(t,0,{dur / 2:.3f})',"
-                  f"drawbox=x=0:y=0:w='{W}*t/{dur:.3f}':h=8:c='{PAL['host_b']}':t=fill:"
-                  f"enable='between(t,{dur / 2:.3f},{dur:.3f})',"
-                  f"drawbox=x=0:y=8:w={W}:h=1:c='black@0.5':t=fill,"
-                  f"format=yuv420p[vout]")
+        fc.append(f"[vass][2:v]overlay=0:0:eof_action=pass,format=yuv420p[vout]")
         cmd = (["ffmpeg", "-y", "-loglevel", "error",
                 "-i", str(base),
-                "-loop", "1", "-t", f"{duration:.3f}", "-i", str(scrim)]
+                "-loop", "1", "-t", f"{duration:.3f}", "-i", str(scrim),
+                "-framerate", str(BAR_FPS), "-loop", "1", "-t", f"{duration:.3f}",
+                "-i", str(bar_seq)]
                + lt_inputs + ["-i", str(audio),
                               "-filter_complex", ";".join(fc),
                               "-map", "[vout]", "-map", f"{inp}:a",

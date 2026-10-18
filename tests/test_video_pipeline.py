@@ -21,6 +21,7 @@ sys.path.insert(0, str(SCRIPTS))
 import package_class  # noqa: E402
 import render_audio  # noqa: E402
 import render_video  # noqa: E402
+from PIL import Image, ImageDraw  # noqa: E402 (new visual tests need PIL)
 
 
 def W(text, start, end, speaker="A"):
@@ -298,6 +299,98 @@ class FrameSampling(unittest.TestCase):
     def test_identical_frames_fail(self):
         hs = [render_video.frame_hash(b"\x00" * 64)] * 4
         self.assertFalse(render_video.frames_are_distinct(hs, need=3))
+
+
+class ProgressBarPreRender(unittest.TestCase):
+    """Barka audit 2026-10-18: drawbox w='1080*t/dur' never evaluated per-frame
+    t on this ffmpeg build, so the bar is pre-rendered as a PNG sequence."""
+
+    def _fill_width(self, img):
+        # scan row y=4: gradient fill pixels are opaque (alpha 255),
+        # track pixels are (42,42,53) at 70% (alpha 178)
+        px = img.load()
+        w = 0
+        for x in range(img.width):
+            if px[x, 4][3] == 255:
+                w = x + 1
+            else:
+                break
+        return w
+
+    def _render(self, td, duration=3.7):
+        n = render_video.render_progress_bar(Path(td), duration)
+        frames = [Image.open(Path(td) / f"bar-{i:04d}.png") for i in range(n)]
+        return n, frames
+
+    def test_frame_count_matches_duration(self):
+        with tempfile.TemporaryDirectory() as td:
+            n, _ = self._render(td, duration=3.7)
+        self.assertEqual(n, round(3.7 * render_video.BAR_FPS))
+
+    def test_fill_starts_empty_ends_full(self):
+        with tempfile.TemporaryDirectory() as td:
+            n, frames = self._render(td)
+            self.assertEqual(self._fill_width(frames[0]), 0)
+            self.assertEqual(self._fill_width(frames[-1]), render_video.W)
+
+    def test_fill_grows_monotonically(self):
+        with tempfile.TemporaryDirectory() as td:
+            n, frames = self._render(td)
+            widths = [self._fill_width(frames[i]) for i in range(0, n, 5)]
+            self.assertTrue(all(b >= a for a, b in zip(widths, widths[1:])),
+                            f"bar fill must never shrink: {widths}")
+            self.assertGreater(widths[-1], widths[0])
+
+    def test_track_and_separator(self):
+        with tempfile.TemporaryDirectory() as td:
+            n, frames = self._render(td)
+            f0 = frames[0]
+            self.assertEqual(f0.size, (render_video.W, 9))  # 8px bar + 1px sep
+            self.assertEqual(f0.getpixel((render_video.W - 1, 4))[:3], (42, 42, 53))
+            self.assertEqual(f0.getpixel((render_video.W - 1, 4))[3], int(255 * 0.7))
+            self.assertEqual(f0.getpixel((540, 8)), (0, 0, 0, 128))  # black@0.5 sep
+
+
+class ThumbnailEyebrow(unittest.TestCase):
+    """Barka audit 2026-10-18: eyebrow must keep 'BASICS' ('LESSON 1 · AI BASICS')."""
+
+    def _fit(self):
+        d = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+        font = package_class._font("NotoSans-Bold.ttf", 64)
+        return package_class._fit_eyebrow(d, "01", "AI BASICS FOR EVERYONE", font)
+
+    def test_eyebrow_keeps_basics(self):
+        self.assertEqual(self._fit(), "LESSON 1 · AI BASICS")
+
+    def test_eyebrow_fits_badge_gap(self):
+        d = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+        font = package_class._font("NotoSans-Bold.ttf", 64)
+        brow = self._fit()
+        rendered = (d.textlength(brow, font=font)
+                    + package_class.THUMB_EYEBROW_TRACKING * len(brow))
+        # badge at x=1120, eyebrow starts x=80 -> 1040px truly available
+        self.assertLessEqual(rendered, 1040)
+
+
+class OneRuleCardBorder(unittest.TestCase):
+    """Barka audit 2026-10-18: gradient border reads faint -> wider ring."""
+
+    def test_border_ring_width(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "card.png"
+            render_video.render_rule_card("Scale plus attention beats clever rules", "", p)
+            img = Image.open(p).convert("RGBA")
+        px = img.load()
+        ring = 0
+        # y=800: straight left edge (clear of the 36px corner arcs), no text there
+        for x in range(90, 140):
+            r, g, b, a = px[x, 800]
+            if max(r, g, b) - min(r, g, b) > 60:
+                ring += 1
+            else:
+                break
+        self.assertEqual(ring, render_video.ONE_RULE_BORDER_W)
+        self.assertEqual(render_video.ONE_RULE_BORDER_W, 8)
 
 
 if __name__ == "__main__":

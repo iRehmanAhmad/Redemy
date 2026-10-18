@@ -24,6 +24,11 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 FONT_DIR = "/usr/share/fonts/truetype/noto"
 THUMB_W, THUMB_H = 1280, 720
+# Eyebrow "LESSON n · COURSE": badge sits at x=1120, eyebrow starts at x=80
+# -> 1040px truly available (Barka audit 2026-10-18: 1000px cap + 18 tracking
+# dropped "BASICS" from "LESSON 1 · AI BASICS").
+THUMB_EYEBROW_MAX_W = 1020
+THUMB_EYEBROW_TRACKING = 14
 
 
 def die(msg, hint=None):
@@ -100,6 +105,19 @@ def _font(name, size):
     return ImageFont.truetype(f"{FONT_DIR}/{name}", size)
 
 
+def _fit_eyebrow(draw, num, course, font):
+    """Build "LESSON n · COURSE", trimming words until it fits the badge gap."""
+    brow_words = f"LESSON {int(num)} · {course}".split()
+    brow = ""
+    for wd in brow_words:
+        trial = (brow + " " + wd).strip()
+        if (draw.textlength(trial, font=font)
+                + THUMB_EYEBROW_TRACKING * len(trial) > THUMB_EYEBROW_MAX_W):
+            break
+        brow = trial
+    return brow
+
+
 def _tracked(draw, xy, text, font, fill, tracking):
     x, y = xy
     for ch in text:
@@ -150,14 +168,8 @@ def render_thumbnail(lesson_dir, meta, bg=None):
     amber = _hex("#FFD60A")
     # eyebrow: LESSON 1 · COURSE (trimmed to clear the badge at x=1120)
     brow_f = _font("NotoSans-Bold.ttf", 64)
-    brow_words = f"LESSON {int(num)} · {course}".split()
-    brow = ""
-    for wd in brow_words:
-        trial = (brow + " " + wd).strip()
-        if d.textlength(trial, font=brow_f) + 18 * len(trial) > 1000:
-            break
-        brow = trial
-    _tracked(d, (80, 90), brow, brow_f, amber, 18)
+    brow = _fit_eyebrow(d, num, course, brow_f)
+    _tracked(d, (80, 90), brow, brow_f, amber, THUMB_EYEBROW_TRACKING)
     # headline: <=3 words/line, <=2 lines
     words, lines, cur = str(headline[0]).split(), [], ""
     for wd in words:
