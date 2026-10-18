@@ -1,0 +1,12 @@
+A: Okay, real talk. For fifty years, AI was basically a party trick. Then, around 2017, everything changed. And no, it was not magic.
+B: It was three boring things arriving at the same time. Massive datasets, cheap GPUs, and one clever idea called the transformer.
+A: Think of it like this. We finally gave the machine enough books to read, a fast enough brain to read them, and a better way to pay attention to what matters.
+B: The books part is wild. The whole public internet became training data. Every article, every forum post, every open book. Trillions of words.
+A: And the brain part is the GPU story. Graphics chips built for video games turned out to be perfect for the math that neural networks need. Thousands of tiny calculations running at once.
+B: Then came the transformer in 2017. A research paper with a simple idea. Let the model pay attention to the words that matter most in each sentence.
+A: Here is the one rule. Scale plus attention beats clever hand-coded rules, every single time.
+B: Example time. Google Translate in 2015 was embarrassing. Same team, same building. By 2020 it was scary good. The only change was scale.
+A: Same story in image recognition. In 2012 a neural net crushed a famous contest just by being bigger and seeing more photos. Nobody saw it coming.
+B: So next time someone says AI is hype, ask them this. Have you seen what happens when you ten x the data? That is the whole story.
+A: One more thing before we wrap. Bigger models also surprised their own builders. New skills just showed up, and nobody programmed them in.
+B: Lesson two is next. What a neural network actually is, with zero math degree required. See you there.

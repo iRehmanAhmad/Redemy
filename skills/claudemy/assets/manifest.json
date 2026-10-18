@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "note": "Per-shot stock footage for render_video.py. Drop free downloads here (Pexels / Pixabay / Coverr / Mixkit) and list each file below with its source and license. Shots with no entry use the Ken Burns procedural-still fallback -- never a blank frame.",
+  "shots": [
+  ]
+}

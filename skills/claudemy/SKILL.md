@@ -88,7 +88,24 @@ Check every claim in the plan against the agreement map before showing it: each 
 Write lesson 1 with `references/writer-brief.md` (use `references/lesson-example.md` as the shape), check it, render it, and send the audio and card. Then wait for the user's reaction before making the rest. Fixing the format on one lesson is cheap; fixing it on twelve is not. Their feedback becomes the shape every later lesson copies, so record it in the writer brief you pass on.
 
 Check: `python3 <skill>/scripts/check_lessons.py <workspace> <workspace>/class/01-<handle>`
-Render: `python3 <skill>/scripts/render_audio.py <lesson>/script.txt <lesson>/<handle>.mp3` (it writes the real running time onto the card's Listen line)
+Render: `python3 <skill>/scripts/render_audio.py --engine edge-tts <lesson>/script.txt` (free neural voices, no API key; writes `lesson.mp3` + `words.json`, and stamps the real running time onto the card's Listen line)
+
+## Step 6b. Video (fork addition, optional, $0)
+With `words.json` on disk, each lesson also renders as a finished 1080x1920
+Short — 4–6 shots, word-by-word kinetic captions, speaker lower-thirds, the
+"one rule" card on its flagged beat, progress bar. Never a static text card.
+Needs a `meta.json` per lesson (see `samples/demo/class/01-why-ai-got-smart/meta.json`):
+
+```
+python3 <skill>/scripts/render_video.py --lesson <lesson>        # 1080x1920 Short
+python3 <skill>/scripts/render_video.py --workspace <ws> --compile  # 1920x1080 compilation
+python3 <skill>/scripts/package_class.py <workspace>             # + upload-pack/ thumbnails & per-video meta
+```
+
+Or everything in one go: `python3 <skill>/scripts/make_video.py --workspace <workspace> [--compile]`.
+Drop free stock footage (Pexels/Pixabay/Coverr/Mixkit) into
+`skills/claudemy/assets/` with a `manifest.json` entry per shot; shots without
+footage use a Ken Burns still. Visual system spec: design-spec.md.
 
 ## Step 7. The rest
 - Writer agents in parallel, about 4 lessons each, each told to copy the approved lesson 1.

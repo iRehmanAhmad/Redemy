@@ -1,5 +1,12 @@
 # Claudemy: an open-source alternative to Udemy and Coursera
 
+> **Fork note.** This is a fork of [assafkip/claudemy](https://github.com/assafkip/claudemy)
+> (MIT), maintained at `iRehmanAhmad/claudemy`. Upstream's course pipeline
+> (research → lessons → audio) is unchanged; this fork adds a **free TTS engine**
+> and a **course-to-video pipeline** that turns each lesson into an edited
+> 1080x1920 Short — see below. Attribution to the original author is kept in
+> full; see [License](#license).
+
 You wanted to learn negotiation. You got a 40-hour course, a syllabus someone wrote years ago, and a tab you never reopened.
 
 Claudemy is a free Claude Code skill that builds the course you will actually finish. You name a topic. It researches the web and hands back about 12 audio lessons of 2 minutes each.
@@ -43,6 +50,78 @@ Listen for 2 minutes. Try one thing. Keep one rule.
 
 Want a class built from one person's work instead? Say so: `teach me negotiation from <name>'s writing`. It reads their Substack or blog and builds the class from that.
 
+## Course-to-video pipeline (fork addition, $0)
+
+Every lesson can also become a finished **1080x1920 MP4 Short** — plus a
+**1920x1080 long-form compilation** of the whole class and a **YouTube
+upload pack** (thumbnail + title/description/tags per video). Total new cost:
+**$0**. No paid API keys anywhere: neural voices come from the free
+`edge-tts` package, visuals from free stock footage (or procedural Ken Burns
+stills), captions from the TTS word timings, assembly from ffmpeg.
+
+```
+script.txt ──► render_audio.py ──► lesson.mp3 ──┐
+(--engine edge-tts, free)      words.json ─────┤
+                                               ▼
+meta.json ──► render_video.py ──► lesson.mp4 (1080x1920, 5 shots, captions on)
+assets/ ──▲                        │
+(manifest.json + free               ▼
+ stock footage)          render_video.py --compile ──► compilation.mp4 (1920x1080)
+                                               │
+                                               ▼
+                              package_class.py ──► upload-pack/<lesson>/
+                                                   thumbnail.png + <lesson>.md
+```
+
+**The visual design rule: text-card-only output is a FAIL.** A lesson is not
+one static card held for 2 minutes. `render_video.py` plans 4–6 shots per
+lesson (hook shot in the first 3 seconds), cuts on speaker/beat changes, and
+every shot carries motion — real stock footage from `assets/` when you drop
+some in, otherwise a Ken Burns push/pull over a procedural still. On top:
+word-by-word kinetic captions (amber active word, burned in from the TTS
+timestamps), speaker-aware lower-thirds (Nova/Atlas), the "one rule" card
+**only** on its flagged beat, and a progress bar. Full spec:
+`tasks/T-002/design-spec.md` in the dev workspace.
+
+**Assets contract.** `skills/claudemy/assets/` ships with a `manifest.json`
+and a README listing where to get free footage (Pexels, Pixabay, Coverr,
+Mixkit — download in the browser, no API keys). Map 1-based shot numbers to
+files with a source URL + license per file; shots with no entry use the
+Ken Burns fallback. Override per run with `--assets <dir>`.
+
+**Lesson contract.** Each `class/<NN-name>/` needs `script.txt` (upstream
+format), `meta.json` (`lesson`, `course`, `title`, `headline` ≤ 2 lines,
+`hosts` A/B names, `one_rule` {`turn` 0-based, `headline`, `sub`},
+`description`, `tags[]`, `hashtags[]`). `render_audio.py --engine edge-tts`
+writes `lesson.mp3` + `words.json`; `render_video.py --lesson <dir>` writes
+`lesson.mp4`.
+
+**One command** (or stage by stage — see `scripts/make_video.py --help`):
+
+```bash
+pip install edge-tts            # free neural TTS; ffmpeg already required
+python3 scripts/make_video.py --workspace samples/demo          # everything
+python3 scripts/make_video.py --workspace samples/demo --compile  # + long-form video
+```
+
+**Dry-run** (no keys, ~15 min on this VM for one 2-minute lesson):
+
+```bash
+python3 scripts/check_lessons.py samples/demo
+python3 scripts/render_audio.py --engine edge-tts \
+    samples/demo/class/01-why-ai-got-smart/script.txt
+python3 scripts/render_video.py --lesson samples/demo/class/01-why-ai-got-smart
+python3 scripts/render_video.py --workspace samples/demo --compile
+python3 scripts/package_class.py samples/demo
+# verify: ffprobe shows h264+aac, duration within ±2s of the MP3;
+# sample frames across the video and confirm >= 3 distinct shots
+```
+
+Known environment quirk: on sandboxed machines whose egress proxy hangs on
+the `wss://` upgrade to `speech.platform.bing.com`, `render_audio.py`
+bypasses the proxy for the edge-tts calls (direct TLS works); see
+`tasks/T-002/findings-asma.md`.
+
 ## Install
 
 As a Claude Code plugin:
@@ -83,7 +162,12 @@ Anything people write about well on the open web. Skills (negotiation, public sp
 No. It reads pages the way a researcher does, writes its own lessons, and links to the sources. Pages it reads are saved only in your local workspace for your own study.
 
 **Can I use it without ElevenLabs?**
-Yes. On a Mac it falls back to the built-in voices. The cards and playbook work with no audio at all.
+Yes — and on any OS, not just macOS. The fork's default engine is the free
+`edge-tts` package (neural voices, no API key, Windows/Linux/Mac), which also
+emits the word timings the video captions need:
+`render_audio.py --engine edge-tts script.txt`. ElevenLabs stays available as
+an opt-in premium (`--engine elevenlabs`); the macOS `say` fallback is
+`--engine say`.
 
 **How long does a course take to make?**
 A 12-lesson course is a long-running Claude Code session: research, reading, writing and about 25 minutes of generated audio.
