@@ -8,6 +8,7 @@ class never read is how invented sources get in, so it is a hard fail.
 Usage: python3 check_lessons.py <workspace> [lesson-folder ...]   (default: all)
 Exit 1 if any lesson fails.
 """
+import argparse
 import re, sys
 from pathlib import Path
 
@@ -129,8 +130,16 @@ def main(ws, folders):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    ws = Path(sys.argv[1]).expanduser().resolve()
-    folders = [Path(a) for a in sys.argv[2:]] or sorted(p for p in (ws / "class").glob("[0-9][0-9]-*") if p.is_dir())
+    ap = argparse.ArgumentParser(
+        prog="check_lessons.py",
+        description=__doc__.splitlines()[0],
+        epilog="examples:\n"
+               "  python3 check_lessons.py samples/demo\n"
+               "  python3 check_lessons.py samples/demo class/01-my-lesson\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("workspace", help="workspace root containing class/ (and raw/ sources)")
+    ap.add_argument("lesson", nargs="*", help="lesson folders to check (default: all)")
+    args = ap.parse_args()
+    ws = Path(args.workspace).expanduser().resolve()
+    folders = [Path(a) for a in args.lesson] or sorted(p for p in (ws / "class").glob("[0-9][0-9]-*") if p.is_dir())
     main(ws, folders)
