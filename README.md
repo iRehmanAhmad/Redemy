@@ -1,7 +1,7 @@
-# Claudemy: an open-source alternative to Udemy and Coursera
+# Redemy: an open-source alternative to Udemy and Coursera
 
 > **Fork note.** This is a fork of [assafkip/claudemy](https://github.com/assafkip/claudemy)
-> (MIT), maintained at `iRehmanAhmad/claudemy`. Upstream's course pipeline
+> (MIT), maintained at `iRehmanAhmad/Redemy`. Upstream's course pipeline
 > (research → lessons → audio) is unchanged; this fork adds a **free TTS engine**
 > and a **course-to-video pipeline** that turns each lesson into an edited
 > 1080x1920 Short — see below. Attribution to the original author is kept in
@@ -9,7 +9,7 @@
 
 You wanted to learn negotiation. You got a 40-hour course, a syllabus someone wrote years ago, and a tab you never reopened.
 
-Claudemy is a free Claude Code skill that builds the course you will actually finish. You name a topic. It researches the web and hands back about 12 audio lessons of 2 minutes each.
+Redemy is a free Claude Code skill that builds the course you will actually finish. You name a topic. It researches the web and hands back about 12 audio lessons of 2 minutes each.
 
 ```
 > teach me negotiation
@@ -83,7 +83,7 @@ timestamps), speaker-aware lower-thirds (Nova/Atlas), the "one rule" card
 **only** on its flagged beat, and a progress bar. Full spec:
 `tasks/T-002/design-spec.md` in the dev workspace.
 
-**Assets contract.** `skills/claudemy/assets/` ships with a `manifest.json`
+**Assets contract.** `skills/redemy/assets/` ships with a `manifest.json`
 and a README listing where to get free footage (Pexels, Pixabay, Coverr,
 Mixkit — download in the browser, no API keys). Map 1-based shot numbers to
 files with a source URL + license per file; shots with no entry use the
@@ -127,11 +127,11 @@ bypasses the proxy for the edge-tts calls (direct TLS works); see
 As a Claude Code plugin:
 
 ```
-/plugin marketplace add assafkip/claudemy
-/plugin install claudemy@claudemy
+/plugin marketplace add iRehmanAhmad/Redemy
+/plugin install redemy@redemy
 ```
 
-Or copy `skills/claudemy/` into `~/.claude/skills/`, or download [`claudemy.skill` from the latest release](https://github.com/assafkip/claudemy/releases/latest/download/claudemy.skill).
+Or copy `skills/redemy/` into `~/.claude/skills/`, or download [`redemy.skill` from the latest release](https://github.com/iRehmanAhmad/Redemy/releases/latest/download/redemy.skill).
 
 Then ask for any topic: `teach me <topic>`.
 
@@ -142,18 +142,18 @@ Then ask for any topic: `teach me <topic>`.
 - Audio: an ElevenLabs API key for natural two-voice lessons, either in `ELEVENLABS_API_KEY` or typed into the plugin's configuration prompt when you install it (stored in your OS keychain). Without one, macOS's built-in voices are used (free, plainer).
 - Optional: `pandoc` for a Word copy of the cards.
 
-Voices can be changed with `CLAUDEMY_VOICE_A` / `CLAUDEMY_VOICE_B` (ElevenLabs voice ids) or `CLAUDEMY_SAY_A` / `CLAUDEMY_SAY_B` (macOS voices).
+Voices can be changed with `REDEMY_VOICE_A` / `REDEMY_VOICE_B` (ElevenLabs voice ids) or `REDEMY_SAY_A` / `REDEMY_SAY_B` (macOS voices).
 
 ## Data
-Claudemy runs on your machine inside Claude Code. It fetches the public web pages it researches and saves them in a local workspace folder. If you set an ElevenLabs API key, the text of each lesson is sent to ElevenLabs to render the audio. Without a key, audio is rendered locally with macOS voices. The skill has no server, collects no analytics, and stores nothing outside your machine. Details: [privacy page](https://assafkip.github.io/claudemy/privacy.html).
+Redemy runs on your machine inside Claude Code. It fetches the public web pages it researches and saves them in a local workspace folder. If you set an ElevenLabs API key, the text of each lesson is sent to ElevenLabs to render the audio. Without a key, audio is rendered locally with macOS voices. The skill has no server, collects no analytics, and stores nothing outside your machine. Details: [privacy page](https://assafkip.github.io/claudemy/privacy.html).
 
 ## FAQ
 
-**Is Claudemy free?**
+**Is Redemy free?**
 Yes. The skill is MIT licensed. You pay only for what you already use: your Claude plan, and ElevenLabs credits if you want the premium voices. The macOS voices cost nothing.
 
 **How is it different from Udemy or Coursera?**
-Course sites sell a fixed course someone recorded once. Claudemy builds a course on the topic you name, at your level, from current sources, and shows you where those sources disagree. Lessons are 2 minutes and end in one thing to try, so the course is built to be finished.
+Course sites sell a fixed course someone recorded once. Redemy builds a course on the topic you name, at your level, from current sources, and shows you where those sources disagree. Lessons are 2 minutes and end in one thing to try, so the course is built to be finished.
 
 **What topics does it work for?**
 Anything people write about well on the open web. Skills (negotiation, public speaking, sourdough), professional topics (pricing, hiring, SQL), and subjects (stoicism, music theory). Health, legal and financial topics get a note where advice depends on your situation.
@@ -173,7 +173,7 @@ an opt-in premium (`--engine elevenlabs`); the macOS `say` fallback is
 A 12-lesson course is a long-running Claude Code session: research, reading, writing and about 25 minutes of generated audio.
 
 **Can I learn from one specific expert?**
-Yes. Name them in the request. Claudemy finds their Substack or blog and builds the course from their writing.
+Yes. Name them in the request. Redemy finds their Substack or blog and builds the course from their writing.
 
 ## Who built it
 

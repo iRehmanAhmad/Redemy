@@ -40,7 +40,7 @@ try:
 except ImportError:
     sys.exit("missing dependency: pip install beautifulsoup4")
 
-UA = {"User-Agent": "Mozilla/5.0 (claudemy skill)"}
+UA = {"User-Agent": "Mozilla/5.0 (redemy skill)"}
 NETWORK_ERRORS = (urllib.error.URLError, ConnectionError, TimeoutError)
 
 

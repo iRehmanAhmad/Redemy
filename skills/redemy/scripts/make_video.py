@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the full claudemy lesson pipeline end to end: check -> audio -> video -> upload pack.
+"""Run the full redemy lesson pipeline end to end: check -> audio -> video -> upload pack.
 
 One command per lesson, or a whole workspace:
 
@@ -71,8 +71,8 @@ def main():
                     help="one lesson: '01-my-lesson' or a path (default: every lesson in class/)")
     ap.add_argument("--engine", choices=ENGINES, default="edge-tts",
                     help="TTS engine (default: edge-tts -- free, no API key)")
-    ap.add_argument("--voice-a", help="voice for host A (overrides CLAUDEMY_VOICE_A)")
-    ap.add_argument("--voice-b", help="voice for host B (overrides CLAUDEMY_VOICE_B)")
+    ap.add_argument("--voice-a", help="voice for host A (overrides REDEMY_VOICE_A)")
+    ap.add_argument("--voice-b", help="voice for host B (overrides REDEMY_VOICE_B)")
     ap.add_argument("--assets", help="stock-footage directory for render_video.py")
     ap.add_argument("--compile", action="store_true",
                     help="also render the 1920x1080 compilation of all lessons")

@@ -1,4 +1,4 @@
-"""Regression tests for skills/claudemy/scripts. Stdlib only.
+"""Regression tests for skills/redemy/scripts. Stdlib only.
 
 Run from the repo root:  python3 -m unittest discover -s tests
 Each test names the GitHub issue it guards.
@@ -17,7 +17,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "claudemy" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "redemy" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import check_lessons  # noqa: E402

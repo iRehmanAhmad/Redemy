@@ -16,7 +16,7 @@ Lesson contract (<lesson>/):
     meta.json    {lesson, course, title, headline[<=2], hosts{A,B},
                   one_rule{turn, headline, sub}, description, tags[], hashtags[]}
 
-Assets contract (--assets, default skills/claudemy/assets/):
+Assets contract (--assets, default skills/redemy/assets/):
     manifest.json  {"shots": [{"shot": 1, "file": "hook.mp4",
                                "source": "Pexels video 123 by Jane, pexels.com/...",
                                "license": "Pexels License"}]}
@@ -761,7 +761,7 @@ def parse_args(argv):
     ap.add_argument("--audio", help="lesson audio (default: <lesson>/lesson.mp3, else first *.mp3)")
     ap.add_argument("--words", help="word-timestamps JSON (default: <lesson>/words.json)")
     ap.add_argument("--out", help="output MP4 (default: <lesson>/lesson.mp4, compilation: <ws>/compilation.mp4)")
-    ap.add_argument("--assets", help="stock-footage dir (default: skills/claudemy/assets/)")
+    ap.add_argument("--assets", help="stock-footage dir (default: skills/redemy/assets/)")
     ap.add_argument("--shot-seed", help="seed for procedural stills (default: stable hash of lesson name)")
     return ap.parse_args(argv)
 

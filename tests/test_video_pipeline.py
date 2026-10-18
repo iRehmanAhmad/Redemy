@@ -15,7 +15,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "claudemy" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "redemy" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import package_class  # noqa: E402

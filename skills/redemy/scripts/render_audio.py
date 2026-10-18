@@ -9,7 +9,7 @@ Engines (--engine, default edge-tts):
   words.json (word-level timestamps) next to the MP3 — render_video.py
   captions depend on this. Voices default to en-US-AriaNeural (A) and
   en-US-GuyNeural (B); override with --voice-a/--voice-b or
-  CLAUDEMY_VOICE_A / CLAUDEMY_VOICE_B.
+  REDEMY_VOICE_A / REDEMY_VOICE_B.
 - elevenlabs: ElevenLabs Text-to-Dialogue when ELEVENLABS_API_KEY is set
   (paid). One call per batch, not isolated lines glued with silence.
 - say: macOS `say` (free, offline, plainer).
@@ -193,9 +193,9 @@ def probe_seconds(path):
 
 
 def elevenlabs_parts(turns, tmp, key):
-    voices = {"A": os.environ.get("CLAUDEMY_VOICE_A", "TX3LPaxmHKxFdv7VOQHJ"),
-              "B": os.environ.get("CLAUDEMY_VOICE_B", "cgSgspJ2msm6clMCkdW9")}
-    stability = float(os.environ.get("CLAUDEMY_STABILITY", "0.3"))
+    voices = {"A": os.environ.get("REDEMY_VOICE_A", "TX3LPaxmHKxFdv7VOQHJ"),
+              "B": os.environ.get("REDEMY_VOICE_B", "cgSgspJ2msm6clMCkdW9")}
+    stability = float(os.environ.get("REDEMY_STABILITY", "0.3"))
     parts = []
     for i, batch in enumerate(batches(turns)):
         body = {"inputs": [{"text": strip_tags(said), "voice_id": voices[who]} for who, said in batch],
@@ -228,8 +228,8 @@ def batches(turns):
 
 
 def say_parts(turns, tmp):
-    voices = {"A": os.environ.get("CLAUDEMY_SAY_A", "Samantha"),
-              "B": os.environ.get("CLAUDEMY_SAY_B", "Daniel")}
+    voices = {"A": os.environ.get("REDEMY_SAY_A", "Samantha"),
+              "B": os.environ.get("REDEMY_SAY_B", "Daniel")}
     parts = []
     for i, (who, said) in enumerate(turns):
         part = tmp / f"turn{i:03d}.aiff"
@@ -260,8 +260,8 @@ def parse_args(argv):
                     help="output MP3 (default: <script-dir>/lesson.mp3)")
     ap.add_argument("--engine", choices=("edge-tts", "elevenlabs", "say"), default="edge-tts",
                     help="TTS engine (default: edge-tts -- free, no API key)")
-    ap.add_argument("--voice-a", help="voice for host A (overrides CLAUDEMY_VOICE_A)")
-    ap.add_argument("--voice-b", help="voice for host B (overrides CLAUDEMY_VOICE_B)")
+    ap.add_argument("--voice-a", help="voice for host A (overrides REDEMY_VOICE_A)")
+    ap.add_argument("--voice-b", help="voice for host B (overrides REDEMY_VOICE_B)")
     ap.add_argument("--words", default=None,
                     help="word-timestamps JSON path (default: <out-dir>/words.json; edge-tts only)")
     return ap.parse_args(argv)
@@ -276,8 +276,8 @@ def resolve_paths(args):
 
 def edge_voices(args):
     return {
-        "A": args.voice_a or os.environ.get("CLAUDEMY_VOICE_A", EDGE_DEFAULTS["A"]),
-        "B": args.voice_b or os.environ.get("CLAUDEMY_VOICE_B", EDGE_DEFAULTS["B"]),
+        "A": args.voice_a or os.environ.get("REDEMY_VOICE_A", EDGE_DEFAULTS["A"]),
+        "B": args.voice_b or os.environ.get("REDEMY_VOICE_B", EDGE_DEFAULTS["B"]),
     }
 
 
